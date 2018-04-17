@@ -1,26 +1,26 @@
 <?php
 /**
-##########################################################################
-#                    DapNetPaging Class for PHP
-##########################################################################
-#
-# Filename: DapNet.Class.php
-#
-# Author:   Simon Brecht, simon@brecht.email
-#
-##########################################################################
-#
-# Manages Paging and Connections between custom Scripts and DapNet Core
-# API. For a simple Example, please look below.
-#
-##########################################################################
-#
-# Versions:
-#           0.1 , 17.04.2018: Script created
-#	    0.2 , 17.04.2018: Debug added
-#
-#
-##########################################################################
+**************************************************************************
+*                    DapNetPaging Class for PHP
+**************************************************************************
+*
+* Filename: DapNetPaging.Class.php
+*
+* Author:   Simon Brecht, simon@brecht.email
+*
+**************************************************************************
+*
+* Manages Paging and Connections between custom Scripts and DapNet Core
+* API. For a simple Example, please look below.
+*
+**************************************************************************
+*
+* Versions:
+*           0.1 , 17.04.2018: Script created
+*	    0.2 , 17.04.2018: Debug added
+*
+*
+**************************************************************************
 **/
 
 class DapNetPaging {
