@@ -18,6 +18,8 @@
 * Versions:
 *           0.1 , 17.04.2018: Script created
 *	    0.2 , 17.04.2018: Debug added
+*           0.3 , 20.04.2018: Added Caching for DapNet Core Servers and
+*                             auto failover, if one Core is not reachable
 *
 *
 **************************************************************************
@@ -31,10 +33,15 @@ class DapNetPaging {
 	var $dapnet_api = "http://dapnet.di0han.as64636.de.ampr.org/api/";
 	var $dapnet_user;
 	var $dapnet_pass;
+	var $dapnet_default = ":8080/";
+
+	var $dapnet_ini = "./DapNetPaging.ini";
 
 	var $callsign;
 	var $transmitter = array("dl-all");
 	var $result;
+	var $http_code;
+	var $cache_once = false;
 
 	var $debug = false;
 
@@ -59,12 +66,33 @@ class DapNetPaging {
 	}
 
 	/*
+		Save cUrl Method; executes cUrl, checks response and if request
+		failed, move to next available DapNet Core Server
+	*/
+	private function curlme($json_path, $_postdata = "") {
+		$this->makecurl($json_path, $_postdata);
+		if(substr($this->http_code,0,1) != "2") {
+			$this->debugme("Doesn't get http code 200, get: ".$this->http_code);
+			$this->debugme("Looping through all available DapNet Core Servers to finish request...");
+			$nodes = $this->file_ini_read("nodes");
+			foreach($nodes as $key => $val) {
+				$this->dapnet_api = "http://" . $val . $this->dapnet_default;
+				$this->debugme("Trying Core [".$key."] with URL: ".$this->dapnet_api);
+				$this->makecurl($json_path, $_postdata);
+				if(substr($this->http_code,0,1) == "2") break;
+			}
+		} else {
+			$this->build_cache();
+		}
+	}
+
+	/*
 		Customized cUrl Function for different requests.
 		If $_postdata is empty, function will call a GET request; otherwise
 		a POST Request with JSON String in $_postdata will be executed.
 		Result of cUrl will be saved in $this->result for later operations...
 	*/
-	private function curlme($json_path, $_postdata = "") {
+	private function makecurl($json_path, $_postdata = "") {
 		$this->debugme("Creating new cUrl Instance");
 		$ch      = curl_init( $this->dapnet_api . $json_path );
 		$this->debugme("Options:");
@@ -73,9 +101,11 @@ class DapNetPaging {
 		$this->debugme(" pass   = " . $this->dapnet_pass);
 		$this->debugme(" header = " . "Accept: application/json");
 		$options = array(
-			CURLOPT_SSL_VERIFYPEER => false,
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_USERPWD        => "{$this->dapnet_user}:{$this->dapnet_pass}",
+			CURLOPT_SSL_VERIFYPEER    => false,
+			CURLOPT_RETURNTRANSFER    => true,
+			CURLOPT_USERPWD           => "{$this->dapnet_user}:{$this->dapnet_pass}",
+			CURLOPT_TIMEOUT	          => 60,
+			CURLOPT_CONNECTTIMEOUT    => 5,
 		);
 		$this->debugme("Setting cUrl Options to Instance");
 		curl_setopt_array( $ch, $options );
@@ -92,6 +122,7 @@ class DapNetPaging {
 		$this->debugme("Executing curl with options...");
 		$result = curl_exec( $ch );
 		$this->debugme("cUrl Result: \n ".$result);
+		$this->http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 		$this->result = $result;
 	}
 
@@ -131,7 +162,7 @@ class DapNetPaging {
 		Result of paging is $this->result / fetched via cUrl
 		ToDo: Implement check if Variables, if $callsigns is really an array...
 	*/
-	function page_users($callsigns, $text, $emergency = false) {
+	public function page_users($callsigns, $text, $emergency = false) {
 		foreach($callsigns as $callsign) {
 			if(!$this->isUserExisting($callsign)) {
 				die("Error: Aborting, during ".$callsign." does not exist!");
@@ -141,6 +172,76 @@ class DapNetPaging {
 		$this->curlme("calls", $request);
 	}
 
+	/*
+		Tries to fetch all available DapNet Core Servers and build a local cache
+		for some unreachable reasons. The Cache File is build in ini structure, so 
+		it is easy the read those information again.
+	*/
+	private function build_cache() {
+		if(!$this->cache_once) {
+			$this->debugme("Trying to build a local Cache for DapNet Core Servers...");
+			$this->makecurl("nodes");
+			$nodes_fetch = json_decode($this->result, true);
+			$nodes_cache = array();
+			foreach($nodes_fetch as $node) {
+				$nodes_cache[$node["name"]] = $node["address"]["ip_addr"];
+			}
+			$this->debugme("Cache build, write down ini file..");
+			$this->file_ini_write("nodes", $nodes_cache);
+			$this->debugme("Disable further caching in this script!");
+			$this->cache_once = true;
+		}
+	}
+
+	/*
+		Writes Cache/INI File for Class.
+		To execute, please follow example below:
+		$this->file_ini_write("demo-key", array("MyKey" => "MyValue"));
+	*/
+	private function file_ini_write($key, $vals) {
+		if(file_exists($this->dapnet_ini)) {
+			$old_ini = parse_ini_file($this->dapnet_ini, TRUE);
+		} else {
+			$old_ini = array();
+		}
+		$old_ini[$key] = $vals;
+		$ini_content = "";
+		foreach($old_ini as $inikey => $inival) {
+			$ini_content .= "[".$inikey."] \n";
+			foreach($inival as $inisubkey => $inisubval) {
+				if(!empty($inisubval) && $inisubval != "") {
+					if(is_numeric($inisubval)) {
+						$ini_content .= $inisubkey." = ".$inisubval." \n";
+					} else {
+						$ini_content .= $inisubkey." = \"".$inisubval."\" \n";
+					}
+				}
+			}
+			$ini_content .= "\n";
+		}
+		$new_ini = fopen($this->dapnet_ini, 'w');
+		fwrite($new_ini, $ini_content);
+		fclose($new_ini);
+	}
+
+	/*
+		Returns an array of keys and values from DapNetPaging.ini,
+		an Example:
+		$nodes = $this->file_ini_read("nodes");
+		
+		Returns in:
+		$nodes["abc"] = "1.2.3.4"
+		[...]
+	*/
+	private function file_ini_read($key) {
+                if(file_exists($this->dapnet_ini)) {
+                        $content = parse_ini_file($this->dapnet_ini, TRUE);
+                } else {
+                        return false;
+                }
+		return $content[$key];
+	}
 }
 
 ?>
+
