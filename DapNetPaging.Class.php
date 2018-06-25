@@ -20,6 +20,7 @@
 *	    0.2 , 17.04.2018: Debug added
 *           0.3 , 20.04.2018: Added Caching for DapNet Core Servers and
 *                             auto failover, if one Core is not reachable
+*           0.4 , 25.06.2018: Fix Unknown Property in isUserExisting function
 *
 *
 **************************************************************************
@@ -138,7 +139,9 @@ class DapNetPaging {
 		$this->debugme("Checking if callsign '".$callsign."' existing...");
 		$this->curlme("users/" . $callsign);
 		$body   = json_decode($this->result);
-		if($body->name != "Not Found") {
+		if(!property_exists('body', 'name')) {
+			$this->debugme("...unknown Response!");
+		} elseif($body->name != "Not Found") {
 			$retval = true;
 			$this->debugme("...existing");
 		} else {
