@@ -140,6 +140,7 @@ class DapNetPaging {
 		$this->curlme("users/" . $callsign);
 		$body   = json_decode($this->result);
 		if(!property_exists('body', 'name')) {
+			$retval = true;
 			$this->debugme("...unknown Response!");
 		} elseif($body->name != "Not Found") {
 			$retval = true;
