@@ -21,6 +21,9 @@
 *           0.3 , 20.04.2018: Added Caching for DapNet Core Servers and
 *                             auto failover, if one Core is not reachable
 *           0.4 , 25.06.2018: Fix Unknown Property in isUserExisting function
+*           0.5 , 25.06.2018: Retrieve User List from Core
+*           0.6 , 25.06.2018: Fixes on $this->result from Cache
+*           0.7 , 25.06.2018: Retrieve Node List from Core
 *
 *
 **************************************************************************
@@ -177,12 +180,44 @@ class DapNetPaging {
 	}
 
 	/*
+		Returns an array of all registered users to the system
+	*/
+	public function get_userlist() {
+		$this->curlme("users/");
+		$result = json_decode($this->result, true);
+		$users = "";
+		foreach($result as $user) {
+			$users .= " ".$user["name"];
+		}
+		$users = trim($users);
+		return explode(" ", $users);
+	}
+
+	/*
+		Returns an array of all nodes with status, like:
+		$array[0]["name"] = di0han
+		$array[0]["status"] = online
+	*/
+	public function get_nodelist() {
+                $this->curlme("nodes");
+                $result = json_decode($this->result, true);
+                $i = 0;
+                foreach($result as $node) {
+                        $nodes[$i]["name"] = $node["name"];
+			$nodes[$i]["status"] = $node["status"];
+			$i++;
+                }
+                return $nodes;
+	}
+
+	/*
 		Tries to fetch all available DapNet Core Servers and build a local cache
 		for some unreachable reasons. The Cache File is build in ini structure, so 
 		it is easy the read those information again.
 	*/
 	private function build_cache() {
 		if(!$this->cache_once) {
+			$old_result = $this->result;
 			$this->debugme("Trying to build a local Cache for DapNet Core Servers...");
 			$this->makecurl("nodes");
 			$nodes_fetch = json_decode($this->result, true);
@@ -194,6 +229,7 @@ class DapNetPaging {
 			$this->file_ini_write("nodes", $nodes_cache);
 			$this->debugme("Disable further caching in this script!");
 			$this->cache_once = true;
+			$this->result = $old_result;
 		}
 	}
 

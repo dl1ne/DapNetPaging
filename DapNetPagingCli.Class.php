@@ -35,6 +35,44 @@ class DapNetPagingCli {
 		}
 	}
 
+	function cli_userlist($attr) {
+		$a = explode(" ", $attr);
+		$filter = "";
+		if(count($a)>1) $filter = $a[1];
+		$arr = $this->DapNetPaging->get_userlist();
+		$col_max = 8;
+		$col_cur = 1;
+		foreach($arr as $user) {
+			if($filter == "" || strpos(strtolower($user), strtolower($filter)) !== false) {
+				if($col_cur > $col_max) {
+					print("\n");
+					$col_cur = 1;
+				} elseif($col_cur > 1) {
+					print("\t");
+				}
+				print($user);
+				$col_cur++;
+			}
+		}
+		print("\n\n");
+	}
+
+	function displayhelp_userlist($short = true) {
+		print("Userlist\tShows a list of registered users\n");
+	}
+
+	function cli_nodelist($attr) {
+		$nodes = $this->DapNetPaging->get_nodelist();
+		for($i=0; $i<count($nodes); $i++) {
+			print($nodes[$i]["name"]."\t\tStatus: ".$nodes[$i]["status"]."\n");
+		}
+		print("\n");
+	}
+
+	function displayhelp_nodelist($short = true) {
+		print("Nodelist\tShows a list of all registeres nodes/cores\n");
+	}
+
 	function displayhelp_help($short = true) {
 		print("Help\t\tDisplay help context\n");
 		if(!$short) {
