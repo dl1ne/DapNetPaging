@@ -24,6 +24,7 @@
 *           0.5 , 25.06.2018: Retrieve User List from Core
 *           0.6 , 25.06.2018: Fixes on $this->result from Cache
 *           0.7 , 25.06.2018: Retrieve Node List from Core
+*           0.8 , 26.06.2018: Retrieve Rubrics and Transmitters from Core
 *
 *
 **************************************************************************
@@ -208,6 +209,32 @@ class DapNetPaging {
 			$i++;
                 }
                 return $nodes;
+	}
+
+	/*
+		Returns an array of all rubrics listed on core, like:
+		$array[0]["number"] = 1
+		$array[0]["name"] = dx-kw
+		$array[0]["label"] = DX KW
+		$array[0]["transmitterGroups"] = array(dxclusters)
+	*/
+	public function get_rubriclist() {
+		$this->curlme("rubrics");
+		$result = json_decode($this->result, true);
+		return $result;
+	}
+
+	/*
+		Returns an array of all transmitters, like:
+		$array[0]["name"] = db0luh
+		$array[0]["nodeName"] = di0han
+		$array[0]["deviceType"] = UniPager-Audio
+		$array[0]["status"] = ONLINE
+	*/
+	public function get_transmitterlist() {
+		$this->curlme("transmitters");
+		$result = json_decode($this->result, true);
+		return $result;
 	}
 
 	/*
